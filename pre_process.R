@@ -526,6 +526,103 @@ familiarityWeights <- function(trainingDir, closest, nClosest, nDescriptors, err
   (classWeights)
 }
 
+graphizeErrorsOfClass <- function(errors, the_class, training, closest, nClosest=100, descriptor=0, progress=TRUE){
+  
+  dims <- dim(errors)
+  error_classes <- getPersonID(training)
+  samplesOfClass <- which(error_classes == the_class)
+  N <- length(samplesOfClass)
+  error_classes <- error_classes[samplesOfClass]
+  training <- training[samplesOfClass]
+  
+  matchError <- rep(0, dims[3])
+  nMatches <- 0
+  misMatchError <- rep(0, dims[3])
+  nMisMatches <- 0
+  
+  maxError <- max(errors)
+  if(descriptor == 0)
+    plot(c(0,dims[3]), c(0, maxError), col="white")
+  else
+    plot(c(0,N*nClosest), c(0, maxError), col="white")
+  
+  for(i in 1:N){
+    
+    #retrieves the closest samples from each
+    closestImg <- readLines(concatenate(c(closest, "cl_", getFaceID(training[i]), ".txt")))
+    #removes the first one and keeps only the next 'nClosest'th 
+    closestImg <- closestImg[2:(nClosest+1)]
+    #gets the class for each of the closest
+    closestImg <- getPersonID(closestImg)
+    
+    if(descriptor == 0){
+      for(j in 1:nClosest){
+        #cat(imgsClasses[i], " = ", closestImg[j], "\n")
+        
+        #if we have a match classXclass...
+        if(error_classes[i] == closestImg[j]){
+          for(k in 1:dims[3]){
+            #sums the errors
+            matchError[k] <- matchError[k] + errors[i,j,k]
+            points(k-1, errors[i,j,k], col="blue", pch=7)
+          }
+          #counts the occurence
+          nMatches <- nMatches + 1
+        }
+        else{ #if we have a match classXnotClass...
+          for(k in 1:dims[3]){
+            #sums the errors
+            misMatchError[k] <- misMatchError[k] + errors[i,j,k]
+            points(k-1, errors[i,j,k], col="red", pch=9)
+          }
+          #counts the occurence
+          nMisMatches <- nMisMatches + 1
+        }
+      }
+    }
+    else{
+      
+      k <- descriptor
+      
+      for(j in 1:nClosest){
+        #cat(imgsClasses[i], " = ", closestImg[j], "\n")
+        
+        #if we have a match classXclass...
+        if(error_classes[i] == closestImg[j]){
+          #sums the errors
+          matchError[k] <- matchError[k] + errors[i,j,k]
+          points((i-1)*nClosest + j, errors[i,j,k], col="blue", pch=7)
+          #counts the occurence
+          nMatches <- nMatches + 1
+        }
+        else{ #if we have a match classXnotClass...
+          
+          #sums the errors
+          misMatchError[k] <- misMatchError[k] + errors[i,j,k]
+          points((i-1)*nClosest + j, errors[i,j,k], col="red", pch=9)
+          #counts the occurence
+          nMisMatches <- nMisMatches + 1
+        }
+      }
+    }
+  
+    if(progress)
+      cat("\ncomputing classes weights: ", i*100/N, "%\n")
+  }
+  
+  if(descriptor == 0)
+    for(k in 1:dims[3]){
+      
+      points(k-1, matchError[k]/nMatches, col="green", pch=6)
+      points(k-1, misMatchError[k]/nMisMatches, col="orange", pch=2)
+    }
+  else{
+    
+    points(-10, matchError[descriptor]/nMatches, col="green", pch=6)
+    points(-10, misMatchError[descriptor]/nMisMatches, col="orange", pch=2)      
+  }
+}
+
 # Retrieves the file names of all samples from the given class(es)-----
 getAllSamplesFromClass <- function(folder, classes, toFile=""){
   

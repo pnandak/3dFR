@@ -3710,3 +3710,31 @@ discretize <- function(x, n, range=c(0,1)){
   
   (x)
 }
+
+checkClosestIntegrity <- function(closestDir, nClosest, isTraining=FALSE){
+  
+  closest <- dir(closestDir)
+  N <- length(closest)
+  count <- 0
+  
+  for(i in 1:N){
+    minI <- 1
+    maxI <- nClosest
+    prefix <- "cl__"
+    if(isTraining){
+      minI <- 2
+      maxI <- nClosest + 1
+      prefix <- "cl_"
+    }
+    cl <- readLines(concatenate(c(closestDir, closest[i])))[minI:maxI]
+    
+    name <- strsplit(closest[i], prefix)[[1]][2]
+    
+    if(length(which(getPersonID(cl) == getPersonID(name))) == 0){
+      cat(name, " has failed!\n")
+      count <- count + 1
+    }
+  }
+  
+  cat("done!", count, "has failed!\n")
+}

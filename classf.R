@@ -416,8 +416,8 @@ kNeigbourClassf <- function(trainingDir, testDir, method="euclidean", top=1, t=0
 # the verification is made with the 1st part (numeric) of the filename
 # the training and test sets must be composed of vectors, not images
 # it returns the percentage of correctly classified images
-ICPClassf <- function(trainingDir, testDir, closest="", icpBy="mean", method="election", by="error", weights=0, t=0.5, maxIter=10, range=0, nClosest=0, 
-                      outlierCorrection=FALSE, smooth=0, meanDir="", ldmkDir="", logFile="", append=FALSE, exceptClasses=0){
+ICPClassf <- function(trainingDir, testDir, closest="", method="election", by="error", weights=0, t=0.5, maxIter=10, minIter=5, pSample=0.33, 
+                      range=0, nClosest=0, outlierCorrection=FALSE, smooth=0, meanDir="", ldmkDir="", logFile="", append=FALSE, exceptClasses=0){
   
   training <- trainingDir
   if(length(trainingDir) == 1)
@@ -525,26 +525,26 @@ ICPClassf <- function(trainingDir, testDir, closest="", icpBy="mean", method="el
               meanImg <- getMainLines(readImageData(concatenate(c(meanDir, getPersonID(training[j]), "d000.mean.jpg.dat"))),
                                       readLandmark(concatenate(c(ldmkDir, getFaceID(training[j]), ".ldmk"))))
               #cat("applying my ICP\n")
-              dists[j, k] <- my.icp.2d(curveCorrection3(testImg[[K]], meanImg[[K]], smooth), curveCorrection3(trainingImg[[K]], meanImg[[K]], smooth), icpBy, maxIter)$error 
+              dists[j, k] <- my.icp.2d.v2(curveCorrection3(testImg[[K]], meanImg[[K]], smooth), curveCorrection3(trainingImg[[K]], meanImg[[K]], smooth), maxIter, minIter, pSample)$error 
               #cat("Done\n")
             }
             else
-              dists[j, k] <- my.icp.2d(testImg[[K]], trainingImg[[K]], icpBy, maxIter)$error
+              dists[j, k] <- my.icp.2d.v2(testImg[[K]], trainingImg[[K]], maxIter, minIter, pSample)$error
           }
           
         }
         else if(by == "energy"){
           
           for(k in 1:n)
-            dists[j, k] <- my.icp.2d(testImg[[k]], trainingImg[[k]], icpBy, maxIter)$energyMean
+            dists[j, k] <- my.icp.2d.v2(testImg[[k]], trainingImg[[k]], maxIter, minIter, pSample)$energyMean
           
         }
       }
       else{
         
-        tr <- my.icp.2d(testImg[[1]], trainingImg[[1]], maxIter)$target[,2]
+        tr <- my.icp.2d.v2(testImg[[1]], trainingImg[[1]], maxIter, minIter, pSample)$target[,2]
         for(k in 2:n)
-          tr <- c(tr, my.icp.2d(testImg[[k]], trainingImg[[k]], maxIter)$target[,2])
+          tr <- c(tr, my.icp.2d.v2(testImg[[k]], trainingImg[[k]], maxIter, minIter, pSample)$target[,2])
         
         te <- testImg[[1]]
         for(k in 2:n)
@@ -571,7 +571,11 @@ ICPClassf <- function(trainingDir, testDir, closest="", icpBy="mean", method="el
     if(method == "election"){
       cat("i:", i, "\n", file=logFile, append=TRUE)
       votes <- matrix(rep(0, 2*n), ncol=2)
-      values <- 0:10/10
+      
+      values <- rep(0, n)
+      if(length(weights) > 1)
+        values <- 0:10/10
+        
       for(k in 1:n){
         #d <- 0
         #if(icpBy == "mean")

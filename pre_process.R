@@ -356,7 +356,8 @@ getTransfData <- function(file){
 }
 
 # Computes the errors for each training sample and their closest----
-computeErrorsByCurves <- function(trainingDir, closest, nClosest, nDescriptors, toFile="", meanImgs="", ldmk="", method="error", maxIter=10, range=0, progress=TRUE){
+computeErrorsByCurves <- function(trainingDir, closest, nClosest, nDescriptors, toFile="", meanImgs="", ldmk="", method="error", maxIter=10, 
+                                  minIter=5, pSample=0.33, range=0, progress=TRUE){
   
   training <- dir(trainingDir)
   
@@ -396,14 +397,14 @@ computeErrorsByCurves <- function(trainingDir, closest, nClosest, nDescriptors, 
         
         for(k in 1:M){
 	  
-          errors[i,j,k] <- my.icp.2d(curveCorrection3(img1[[k]], meanImg[[k]]), curveCorrection3(img2[[k]], meanImg[[k]]), maxIter)$error
+          errors[i,j,k] <- my.icp.2d.v2(curveCorrection3(img1[[k]], meanImg[[k]]), curveCorrection3(img2[[k]], meanImg[[k]]), maxIter, minIter, pSample)$error
         }
         
       }
       else if(method == "energy"){
         
         for(k in 1:M)
-          errors[i,j,k] <- my.icp.2d(img1[[k]], img2[[k]], maxIter)$energyMean
+          errors[i,j,k] <- my.icp.2d.v2(img1[[k]], img2[[k]], maxIter, minIter, pSample)$energyMean
         
       }
     }

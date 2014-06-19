@@ -1,5 +1,5 @@
 
-my.icp.2d.v2 <- function(reference, target, maxIter=10, minIter=5, threshold=0, pSample=0.5){
+my.icp.2d.v2 <- function(reference, target, maxIter=10, minIter=5, pSample=0.5, threshold=0){
   
   #gets the amount of points, a.k.a. the domain
   m <- length(reference)
@@ -125,7 +125,7 @@ my.icp.2d.v2 <- function(reference, target, maxIter=10, minIter=5, threshold=0, 
       #otherwise, sets the erro to the prime error plus 1
       error <- primeError + 1
     
-    cat("Iteration ", i, "; error = ", error, "\n")
+    #cat("Iteration ", i, "; error = ", error, "\n")
     #increasing the iteration index
     i <- i + 1
   }

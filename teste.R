@@ -1,11 +1,11 @@
 
-my.icp.2d.v2 <- function(reference, target, maxIter=10, threshold=0){
+my.icp.2d.v2 <- function(reference, target, maxIter=10, minIter=5, threshold=0, pSample=0.5){
   
   #gets the amount of points, a.k.a. the domain
   m <- length(reference)
   
   if(threshold == 0)
-    threshold <- m/3
+    threshold <- round(m/3)
   
   #checks whether there are at least 2 non-zero points in both curves
   if(length(which(reference != 0)) < 2 && length(which(target != 0)) < 2)
@@ -34,19 +34,8 @@ my.icp.2d.v2 <- function(reference, target, maxIter=10, threshold=0){
   #performs the rotation in the target to make it closer to the reference
   target <- rotateCurve(target, 0, angle)
   
-  #computes the distance
-  distances <- dist.p2p(reference, target)
-  
-  #computes the initial translation parameters
-  translationFactorX <- reference[which.max(reference[,2]),1] - target[which.max(target[,2]),1]
-  translationFactorY <- mean(distances)
-  
-  #performs the translation
-  target[,1] <- target[,1] + translationFactorX
-  target[,2] <- target[,2] + translationFactorY
-  
   #interpolates the points in order to obtain interger coordinates in X
-  #target <- interpolateXinteger(target)
+  target <- interpolateXinteger(target)
   
   #checks whether the curves got too far
   if(commonDomain(reference, target) >= threshold){
@@ -55,6 +44,8 @@ my.icp.2d.v2 <- function(reference, target, maxIter=10, threshold=0){
     distances <- dist.p2p(reference, target)
     #cat("they are common enougth\n")
     #cat("common domain = ", commonDomain(reference, target), "; threshold = ", threshold, "\n")
+    #remembers the prime target
+    primeTarget <- target
   }
   else{
     #otherwise...
@@ -63,11 +54,7 @@ my.icp.2d.v2 <- function(reference, target, maxIter=10, threshold=0){
     #measures the distances for each point
     distances <- dist.p2p(reference, target)
     #computes the mean error
-    #error <- m
-    #if(by == "mean")
     error <- mean(abs(distances))
-    #else if(by == "cosine")
-    #error <- cosineDist(reference[,2], target[,2])
     
     return(list(target = primeTarget, error = error, energyTotal = error, energyMean = error))
   }
@@ -75,8 +62,8 @@ my.icp.2d.v2 <- function(reference, target, maxIter=10, threshold=0){
   #computes the mean error
   error <- mean(abs(distances))
   
-  #initializes the prime error bigger than the 1st computed error
-  primeError <- error + 1
+  #initializes the prime error that will always be equal or less than error
+  primeError <- error
   #initializes the iteration index with 1
   i <- 1
   #initializes the energy with 0
@@ -84,45 +71,46 @@ my.icp.2d.v2 <- function(reference, target, maxIter=10, threshold=0){
   
   #as long as the error keeps decreasing and the the maximum number of
   #iterations hasn't been reached ...
-  while(error < primeError && i <= maxIter){
+  while((error < primeError || i <= minIter) && i <= maxIter){
     
-    #remembers the prime error
-    primeError <- error
-    #remembers the prime target
-    primeTarget <- target
+    #only if the error is less than the primeError...
+    if(error < primeError){
+      #remembers the prime error
+      primeError <- error
+      #remembers the prime target, that will always have the least error
+      primeTarget <- target
+    }
     #sums the error into the energy
     energy <- energy + primeError
     
-    #computes the scale factor Y
-    factors <- factor.p2p(reference, target, distances)
-    scaleFactorY <- (max(factors) + min(factors[which(factors != 0)])) /2
+    m <- length(target[,1])
+    nSamples <- round(m * pSample)
+    dX <- round(1/pSample)
     
-    #computes the scale factor X
-    refXvar <- getXvariation(reference)
-    tarXvar <- getXvariation(target)
-    #attenpting to consider only a peace of the reference
-    #     if(refXvar$min < tarXvar$max && refXvar$min > tarXvar$min && refXvar$max > tarXvar$max)
-    #       tarXvar$min <- refXvar$min
-    #     else if(refXvar$max < tarXvar$max && refXvar$max > tarXvar$min && refXvar$min < tarXvar$min)
-    #       tarXvar$max <- refXvar$max
-    scaleFactorX <- (refXvar$max - refXvar$min)/(tarXvar$max - tarXvar$min)
+    samples <- 0
+    if(m %% 2 == 0)
+      samples <- 0:(nSamples - 1) * dX + sample(1:dX, 1)
+    else
+      samples <- 0:(nSamples - 1) * dX + sample(1:(dX-1), 1)
     
-    #performs the scalling
-    target[,2] <- target[,2] * (1 + scaleFactorY)
-    target[,1] <- target[,1] * scaleFactorX
+    translationFactorX <- 0
+    translationFactorY <- 0
     
-    #if the X coordinates changed, interpolates the points in order to obtain interger coordinates in X
-    if(scaleFactorX != 1)
-      target <- interpolateXinteger(target)
+    for(j in samples){
+      
+      dists <- as.matrix(dist(rbind(target[j,], reference)))[1,-1]
+      k <- which.min(dists)
+      
+      translationFactorX <- translationFactorX + reference[k,1] - target[j,1]
+      translationFactorY <- translationFactorY + reference[k,2] - target[j,2]
+    }
+    
+    translationFactorX <- translationFactorX/nSamples
+    translationFactorY <- translationFactorY/nSamples
     
     #performs the translation in X
-    translationFactorX <- reference[which.max(reference[,2]),1] - target[which.max(target[,2]),1]
     target[,1] <- target[,1] + translationFactorX
-    
-    #computes the distance
-    distances <- dist.p2p(reference, target)
     #performs the translation in Y
-    translationFactorY <- mean(distances)
     target[,2] <- target[,2] + translationFactorY
     
     #measures the distances for each point
@@ -137,15 +125,11 @@ my.icp.2d.v2 <- function(reference, target, maxIter=10, threshold=0){
       #otherwise, sets the erro to the prime error plus 1
       error <- primeError + 1
     
-    #cat("Iteration ", i, "; error = ", error, "\n")
+    cat("Iteration ", i, "; error = ", error, "\n")
     #increasing the iteration index
     i <- i + 1
   }
   #returns the informations
-  #if(by == "mean")
-  #primeError <- mean(abs(distances))
-  #else if(by == "cosine")
-  #primeError <- cosineDist(reference[,2], target[,2])
   (list(target = primeTarget, error = primeError, energyTotal = energy, energyMean = (energy/(i - 1))))
 }
 

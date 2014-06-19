@@ -19,7 +19,7 @@ crono.end <- function(start){
 
 getTime <- function(){
   
-  timeStr <- strsplit(as.character(Sys.time()), "[ ]")[[1]]
+  timeStr <- strsplit(as.character(format(Sys.time(), "%y-%m-%d %H:%M:%OS6")), "[ ]")[[1]]
   dateStr <- strsplit(timeStr[1], "[-]")[[1]]
   hourStr <- strsplit(timeStr[2], "[:]")[[1]]
   
